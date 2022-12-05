@@ -62,46 +62,30 @@ fn main() -> std::io::Result<()> {
     let mut contents = String::new();
     f.read_to_string(&mut contents)?;
 
+    let (crate_diagram, command_contents) = contents.split_once("\n\n").unwrap();
+
     let line_size = contents.lines().next().unwrap().len();
     let num_containers = (line_size + 1) / 4;
     // stacks represents the stacks of crates. The outer vector is the stack, and the other is the
     // index of the box
     let mut stacks: Vec<VecDeque<char>> = vec![VecDeque::new(); num_containers];
 
-    let mut block_end = 0;
-
-    for (ind, line) in contents.lines().enumerate() {
-        let mut letters = vec![];
-
-        let mut done = false;
-
-        let chars: Vec<char> = line.chars().collect();
-
-        for (ind, c) in chars.iter().enumerate() {
-            if ind == 1 && c.is_numeric() {
-                done = true;
-                break;
-            }
-            if ind % 4 == 1 {
-                letters.push(c);
-            }
-        }
+    for line in crate_diagram.lines() {
+        let letters: Vec<char> = line
+            .as_bytes()
+            .chunks(4)
+            .map(|chunk| chunk[1] as char)
+            .collect();
 
         for (ind, letter) in letters.into_iter().enumerate() {
-            if *letter != ' ' {
-                stacks[ind].push_back(*letter);
+            if letter != ' ' {
+                stacks[ind].push_back(letter);
             }
-        }
-
-        if done {
-            block_end = ind;
-            break;
         }
     }
 
-    let moves: Vec<MoveCommand> = contents
+    let moves: Vec<MoveCommand> = command_contents
         .lines()
-        .skip(block_end + 2)
         .map(|x| MoveCommand::parse(x))
         .collect();
 

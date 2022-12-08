@@ -1,21 +1,13 @@
-use std::{fs::File, io::Read};
+use std::{collections::HashSet, fs::File, io::Read};
 
 fn part1(contents: &mut String) {
     let mut counter = 0;
 
-    for window in contents.chars().collect::<Vec<_>>().windows(4) {
-        let mut valid = true;
-        for (ind, item) in window.iter().enumerate() {
-            for (found_ind, found_item) in window.iter().enumerate() {
-                if item == found_item && found_ind != ind {
-                    valid = false;
-                    break;
-                }
-            }
-        }
+    const WINDOW_SIZE: usize = 4;
 
-        if valid {
-            println!("Counter: {}", counter + 4);
+    for window in contents.as_bytes().windows(WINDOW_SIZE) {
+        if HashSet::<u8>::from_iter(window.iter().copied()).len() == WINDOW_SIZE {
+            println!("Counter: {}", counter + WINDOW_SIZE);
             return;
         }
 
@@ -28,21 +20,11 @@ fn part1(contents: &mut String) {
 fn part2(contents: &mut String) {
     let mut counter = 0;
 
-    let window_size = 14;
+    const WINDOW_SIZE: usize = 14;
 
-    for window in contents.chars().collect::<Vec<_>>().windows(window_size) {
-        let mut valid = true;
-        for (ind, item) in window.iter().enumerate() {
-            for (found_ind, found_item) in window.iter().enumerate() {
-                if item == found_item && found_ind != ind {
-                    valid = false;
-                    break;
-                }
-            }
-        }
-
-        if valid {
-            println!("Counter: {}", counter + window_size);
+    for window in contents.as_bytes().windows(WINDOW_SIZE) {
+        if HashSet::<u8>::from_iter(window.iter().copied()).len() == WINDOW_SIZE {
+            println!("Counter: {}", counter + WINDOW_SIZE);
             return;
         }
 

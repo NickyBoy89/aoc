@@ -1,5 +1,5 @@
 use num_bigint::BigUint;
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Instant};
 
 /// Worry is an arbritrary-precision datatype that represents numbers as a
 /// series of factors
@@ -22,19 +22,7 @@ impl Worry {
         }
     }
 
-    pub fn from_with_factors(n: usize, factors: &[usize]) -> Worry {
-        let mut new_worry = Worry {
-            number: BigUint::from(n),
-            input_factors: HashMap::from_iter(
-                factors.iter().copied().map(|factor| (factor, false)),
-            ),
-            dirty: false,
-        };
-        new_worry.update_factors();
-        new_worry
-    }
-
-    pub fn is_divisible_by(self, factor: usize) -> bool {
+    pub fn is_divisible_by(&self, factor: usize) -> bool {
         if self.dirty {
             panic!("Tried to get factors of dirty number");
         }
@@ -55,25 +43,27 @@ impl Worry {
         }
     }
 
-    pub fn add(&self, other: Worry) -> Worry {
-        let mut new_worry = Worry {
-            number: self.number.clone() + other.number,
-            input_factors: self.input_factors.clone(),
-            dirty: true,
-        };
-
-        new_worry.update_factors();
-        new_worry
+    pub fn add(&mut self, other: &Worry) -> &mut Worry {
+        let now = Instant::now();
+        self.number += &other.number;
+        self.update_factors();
+        println!("Add took {:?}", now.elapsed());
+        self
     }
 
-    pub fn mul(&self, other: Worry) -> Worry {
-        let mut new_worry = Worry {
-            number: self.number.clone() * other.number,
-            input_factors: self.input_factors.clone(),
-            dirty: true,
-        };
+    pub fn mul(&mut self, other: &Worry) -> &mut Worry {
+        let now = Instant::now();
+        self.number *= &other.number;
+        self.update_factors();
+        println!("Mul took {:?}", now.elapsed());
+        self
+    }
 
-        new_worry.update_factors();
-        new_worry
+    pub fn div(&mut self, other: &Worry) -> &mut Worry {
+        let now = Instant::now();
+        self.number /= &other.number;
+        self.update_factors();
+        println!("Div took {:?}", now.elapsed());
+        self
     }
 }

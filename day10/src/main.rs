@@ -1,4 +1,3 @@
-use std::collections::BinaryHeap;
 use std::str::FromStr;
 use std::{fs::File, io::Read};
 
@@ -11,16 +10,14 @@ enum Instr {
 impl Instr {
     fn parse(input: &str) -> Instr {
         match &input[0..4] {
-            "noop" => return Instr::Noop,
-            "addx" => {
-                return Instr::Add(isize::from_str(input.rsplit_once(" ").unwrap().1).unwrap())
-            }
+            "noop" => Instr::Noop,
+            "addx" => Instr::Add(isize::from_str(input.rsplit_once(" ").unwrap().1).unwrap()),
             _ => panic!("Unknown instruction"),
         }
     }
 }
 
-#[derive(Eq, Debug)]
+#[derive(Debug)]
 struct PipelinedInstr {
     deadline: usize,
     instr: Instr,
@@ -32,44 +29,25 @@ impl PipelinedInstr {
     }
 }
 
-impl Ord for PipelinedInstr {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        other.deadline.cmp(&self.deadline)
-    }
-}
-
-impl PartialOrd for PipelinedInstr {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl PartialEq for PipelinedInstr {
-    fn eq(&self, other: &Self) -> bool {
-        self.deadline == other.deadline
-    }
-}
-
-fn part1(instrs: &Vec<Instr>) {
-    let mut pipeline = BinaryHeap::<PipelinedInstr>::new();
+fn part1(instrs: &[Instr]) {
     let mut clock = 0;
 
+    let mut executing: Option<PipelinedInstr> = None;
     let mut register: isize = 1;
 
     let mut instrs = instrs.iter().peekable();
 
     let mut total_strength = 0;
 
-    while instrs.peek() != None || pipeline.len() > 0 {
+    while instrs.peek() != None || executing.is_some() {
         clock += 1;
 
-        if pipeline.len() == 0 {
-            match instrs.next() {
-                Some(instr) => match instr {
-                    Instr::Add(_) => pipeline.push(PipelinedInstr::new(*instr, clock + 1)),
-                    Instr::Noop => pipeline.push(PipelinedInstr::new(*instr, clock)),
-                },
-                None => {}
+        if executing.is_none() {
+            if let Some(instr) = instrs.next() {
+                match instr {
+                    Instr::Add(_) => executing = Some(PipelinedInstr::new(*instr, clock + 1)),
+                    Instr::Noop => executing = Some(PipelinedInstr::new(*instr, clock)),
+                }
             }
         }
 
@@ -77,11 +55,13 @@ fn part1(instrs: &Vec<Instr>) {
             total_strength += clock as isize * register;
         }
 
-        while pipeline.len() > 0 && pipeline.peek().unwrap().deadline == clock {
-            let finished = pipeline.pop().unwrap();
-            match finished.instr {
-                Instr::Add(n) => register += n,
-                _ => {}
+        if let Some(curr_instr) = &executing {
+            if curr_instr.deadline == clock {
+                if let Instr::Add(n) = curr_instr.instr {
+                    register += n;
+                }
+
+                executing = None;
             }
         }
     }
@@ -114,7 +94,7 @@ impl Screen {
                     Pixel::Dark => print!("."),
                 }
             }
-            print!("\n");
+            println!();
         }
     }
 
@@ -123,26 +103,25 @@ impl Screen {
     }
 }
 
-fn part2(instrs: &Vec<Instr>) {
-    let mut pipeline = BinaryHeap::<PipelinedInstr>::new();
+fn part2(instrs: &[Instr]) {
     let mut clock = 0;
 
+    let mut executing: Option<PipelinedInstr> = None;
     let mut register: isize = 1;
 
     let mut instrs = instrs.iter().peekable();
 
     let mut screen = Screen::new();
 
-    while instrs.peek() != None || pipeline.len() > 0 {
+    while instrs.peek() != None || executing.is_some() {
         clock += 1;
 
-        if pipeline.len() == 0 {
-            match instrs.next() {
-                Some(instr) => match instr {
-                    Instr::Add(_) => pipeline.push(PipelinedInstr::new(*instr, clock + 1)),
-                    Instr::Noop => pipeline.push(PipelinedInstr::new(*instr, clock)),
-                },
-                None => {}
+        if executing.is_none() {
+            if let Some(instr) = instrs.next() {
+                match instr {
+                    Instr::Add(_) => executing = Some(PipelinedInstr::new(*instr, clock + 1)),
+                    Instr::Noop => executing = Some(PipelinedInstr::new(*instr, clock)),
+                }
             }
         }
 
@@ -153,10 +132,13 @@ fn part2(instrs: &Vec<Instr>) {
             screen.set_pixel(current_row, current_col, Pixel::Lit);
         }
 
-        while pipeline.len() > 0 && pipeline.peek().unwrap().deadline == clock {
-            match pipeline.pop().unwrap().instr {
-                Instr::Add(n) => register += n,
-                _ => {}
+        if let Some(curr_instr) = &executing {
+            if curr_instr.deadline == clock {
+                if let Instr::Add(n) = curr_instr.instr {
+                    register += n;
+                }
+
+                executing = None;
             }
         }
     }
@@ -169,10 +151,7 @@ fn main() -> std::io::Result<()> {
     let mut contents = String::new();
     f.read_to_string(&mut contents)?;
 
-    let instrs = contents
-        .lines()
-        .map(|line| Instr::parse(line))
-        .collect::<Vec<_>>();
+    let instrs = contents.lines().map(Instr::parse).collect::<Vec<_>>();
 
     part1(&instrs);
     part2(&instrs);

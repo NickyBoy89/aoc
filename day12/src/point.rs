@@ -29,7 +29,7 @@ impl Hash for Point {
 
 impl Ord for Point {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.priority.cmp(&other.priority)
+        other.priority.cmp(&self.priority)
     }
 }
 
@@ -66,7 +66,7 @@ impl Point {
             }
         }
 
-        println!("{:?} can go to {:?}", self, valid);
+        //println!("{:?} can go to {:?}", self, valid);
 
         valid
     }

@@ -2,7 +2,7 @@ use crate::Directions;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct Tile {
-    height: usize,
+    pub height: usize,
     explored: Directions,
     pub is_start: bool,
     pub is_end: bool,

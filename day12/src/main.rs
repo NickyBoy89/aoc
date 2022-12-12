@@ -76,8 +76,7 @@ impl Heightmap {
         p.x >= 0 && p.x < self.width as isize && p.y >= 0 && p.y < self.height as isize
     }
 
-    fn d(&self) -> usize {
-        let source = &self.start_position;
+    fn d(&self, source: &Point) -> Option<usize> {
         let target = &self.end_position;
 
         let mut frontier = BinaryHeap::from([source.clone()]);
@@ -91,10 +90,12 @@ impl Heightmap {
         while frontier.len() > 0 {
             let current = frontier.pop().unwrap();
             if current == *target {
-                return current.priority;
+                return Some(current.priority);
             }
 
             for next in current.neighbors(self) {
+                let steps = self.cost_from_to(&current, &next);
+                let steps = if steps > 0 { 1 } else { 0 };
                 let new_cost = cost_so_far[&current] + 1;
                 if !cost_so_far.contains_key(&next) || new_cost < cost_so_far[&next] {
                     cost_so_far.insert(next.clone(), new_cost);
@@ -105,17 +106,38 @@ impl Heightmap {
             }
         }
 
-        panic!("No path");
+        None
     }
 }
 
 fn part1(contents: &mut String) {
     let mut heightmap = Heightmap::parse(contents);
 
-    println!("{}", heightmap.d());
+    println!("{:?}", heightmap.d(&heightmap.start_position));
 }
 
-fn part2(contents: &mut String) {}
+fn part2(contents: &mut String) {
+    let mut heightmap = Heightmap::parse(contents);
+
+    let mut starts = Vec::new();
+    for (ri, row) in heightmap.grid.iter().enumerate() {
+        for (ci, col) in row.iter().enumerate() {
+            if col.height == 0 {
+                starts.push(Point::new(ci as isize, ri as isize));
+            }
+        }
+    }
+
+    println!(
+        "{:?}",
+        starts
+            .iter()
+            .map(|start| heightmap.d(&start))
+            .filter(|length| length.is_some())
+            .map(|res| res.unwrap())
+            .min()
+    );
+}
 
 fn main() -> std::io::Result<()> {
     let mut f = File::open("input")?;
@@ -123,7 +145,7 @@ fn main() -> std::io::Result<()> {
     f.read_to_string(&mut contents)?;
 
     part1(&mut contents);
-    //part2(&mut contents);
+    part2(&mut contents);
 
     Ok(())
 }

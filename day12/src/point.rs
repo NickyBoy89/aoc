@@ -1,12 +1,14 @@
 use std::{
     cmp::Ordering,
-    collections::HashMap,
     hash::{Hash, Hasher},
 };
 
+use crate::Heightmap;
+
+#[derive(Clone, Debug)]
 pub struct Point {
-    pub x: usize,
-    pub y: usize,
+    pub x: isize,
+    pub y: isize,
     pub priority: usize,
 }
 
@@ -38,19 +40,15 @@ impl PartialOrd for Point {
 }
 
 impl Point {
-    pub fn new(x: usize, y: usize) -> Point {
+    pub fn new(x: isize, y: isize) -> Point {
         Point { x, y, priority: 0 }
     }
 
-    pub fn new_with_priority(x: usize, y: usize, priority: usize) -> Point {
+    pub fn new_with_priority(x: isize, y: isize, priority: usize) -> Point {
         Point { x, y, priority }
     }
 
-    fn mul(&self, n: usize) -> Point {
-        Point::new(self.x * n, self.y * n)
-    }
-
-    pub fn neighbors(&self, grid: &HashMap<Point, usize>) -> Vec<Point> {
+    pub fn neighbors(&self, grid: &Heightmap) -> Vec<Point> {
         let neighbors = vec![
             Point::new(self.x - 1, self.y),
             Point::new(self.x + 1, self.y),
@@ -60,19 +58,16 @@ impl Point {
 
         let mut valid = Vec::new();
         for nei in neighbors {
-            if grid.contains_key(&nei) {
-                valid.push(nei);
+            if grid.contains_point(&nei) {
+                let cost = grid.cost_from_to(&self, &nei);
+                if cost < 2 {
+                    valid.push(nei);
+                }
             }
         }
 
+        println!("{:?} can go to {:?}", self, valid);
+
         valid
-    }
-
-    pub fn xdiff(&self, other: &Point) -> usize {
-        self.x - other.x
-    }
-
-    pub fn ydiff(&self, other: &Point) -> usize {
-        self.y - other.y
     }
 }

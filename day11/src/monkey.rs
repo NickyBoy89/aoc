@@ -1,22 +1,8 @@
-use crate::worry::Worry;
+use num_bigint::BigUint;
+
 use std::str::FromStr;
 
-#[derive(Debug)]
-pub enum OperationInput {
-    Old,
-    Number(usize),
-}
-
-impl OperationInput {
-    fn parse(input: &str) -> OperationInput {
-        match input {
-            "old" => OperationInput::Old,
-            n => OperationInput::Number(usize::from_str(n).unwrap()),
-        }
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Operator {
     Add,
     Multiply,
@@ -32,12 +18,12 @@ impl Operator {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Monkey {
     pub number: usize,
-    pub starting_items: Vec<Worry>,
-    pub first_input: OperationInput,
-    pub second_input: OperationInput,
+    pub starting_items: Vec<BigUint>,
+    pub square_input: bool,
+    pub input: usize,
     pub operator: Operator,
     pub divisible_by: usize,
     pub throw_true: usize,
@@ -61,16 +47,17 @@ impl Monkey {
 
         let starting_items = lines[1]["  Starting items: ".len()..]
             .split(", ")
-            .map(|item| Worry::from(usize::from_str(item).unwrap()))
+            .map(|item| BigUint::from(usize::from_str(item).unwrap()))
             .collect::<Vec<_>>();
 
         let operations = lines[2]["  Operation: new = ".len()..]
             .split(" ")
             .collect::<Vec<_>>();
 
-        let first_input = OperationInput::parse(operations[0]);
+        let square_input = operations[0] == "old" && operations[2] == "old";
+
         let operator = Operator::parse(operations[1]);
-        let second_input = OperationInput::parse(operations[2]);
+        let input = usize::from_str(operations[2]).unwrap_or(0);
 
         let divisible_by = usize::from_str(&lines[3]["  Test: divisible by ".len()..]).unwrap();
 
@@ -82,8 +69,8 @@ impl Monkey {
         Monkey {
             number,
             starting_items,
-            first_input,
-            second_input,
+            square_input,
+            input,
             operator,
             divisible_by,
             throw_true,

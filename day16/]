@@ -1,0 +1,71 @@
+use std::collections::{BinaryHeap, HashMap};
+
+use crate::Valve;
+
+struct Tunnels {
+    tunnels: Vec<Valve>,
+}
+
+struct Tunnel {
+    name: String,
+    priority: usize,
+}
+
+impl Tunnel {
+    fn from_str(input: &str) -> Tunnel {
+        Tunnel { name: input.to_string(), priority: 0 }
+    }
+}
+
+impl PartialOrd for Tunnel {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Tunnel {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.priority.cmp(&other.priority)
+    }
+}
+
+impl PartialEq for Tunnel {
+    fn eq(&self, other: &Self) -> bool {
+        self.priority == other.priority
+    }
+}
+
+impl Eq for Tunnel {}
+
+impl Tunnels {
+    fn travel_time(&self, from: &str, to: &str) -> Option<usize> {
+        let mut frontier = BinaryHeap::from([from]);
+
+        let mut came_from = HashMap::<&str, &str>::new();
+        let mut cost_so_far = HashMap::<&str, usize>::new();
+
+        came_from.insert(from, "");
+        cost_so_far.insert(from, 0);
+
+        while frontier.len() > 0 {
+            let current = frontier.pop().unwrap();
+            if current == *target {
+                return Some(current.priority);
+            }
+
+            for next in current.neighbors(self) {
+                let steps = self.cost_from_to(&current, &next);
+                let steps = if steps > 0 { 1 } else { 0 };
+                let new_cost = cost_so_far[&current] + 1;
+                if !cost_so_far.contains_key(&next) || new_cost < cost_so_far[&next] {
+                    cost_so_far.insert(next.clone(), new_cost);
+                    let item = Point::new_with_priority(next.x, next.y, new_cost);
+                    frontier.push(item);
+                    came_from.insert(next.clone(), current.clone());
+                }
+            }
+        }
+
+        None
+    }
+}

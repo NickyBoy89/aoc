@@ -62,13 +62,23 @@ impl Tunnels {
             let current = frontier.pop().unwrap();
             let current_cost = cost_so_far[current.name.as_str().clone()];
 
+            if current_cost.time_remaining == 0 {
+                println!(
+                    "Total released in path was {}",
+                    current_cost.pressure_released
+                );
+            }
+
             // Look at all the valves that are accessible from the current valve
             for next in self.neighbors_within_time(&current.name, current_cost.time_remaining) {
                 let next = Tunnel::from_str(&next);
 
-                let time_cost = self.travel_time(&current.name, &next.name).unwrap();
+                let time_cost = match self.travel_time(&current.name, &next.name) {
+                    Some(cost) => cost,
+                    None => continue,
+                };
                 let pressure_released =
-                    self.flow_rate_of(&current.name) * current_cost.time_remaining - 1;
+                    self.flow_rate_of(&current.name) * (current_cost.time_remaining - 1);
 
                 // Current path plus the cost from current to next
                 let new_cost = cost_so_far[&current.name]
@@ -77,7 +87,7 @@ impl Tunnels {
                         time_remaining: TIME_LEFT - time_cost,
                     };
 
-                if !cost_so_far.contains_key(&next.name) || new_cost < cost_so_far[&next.name] {
+                if !cost_so_far.contains_key(&next.name) || new_cost > cost_so_far[&next.name] {
                     cost_so_far.insert(next.name.clone(), new_cost);
                     let item = Tunnel {
                         name: next.name.clone(),
@@ -110,7 +120,7 @@ impl Tunnels {
 
             for next in self.neighbors_of(&current.name) {
                 let next = Tunnel::from_str(&next);
-                let new_cost = cost_so_far[&current] + 1;
+                let new_cost = *cost_so_far.get(&current).unwrap_or(&0) + 1;
                 if !cost_so_far.contains_key(&next) || new_cost < cost_so_far[&next] {
                     cost_so_far.insert(next.clone(), new_cost);
                     let item = Tunnel {
@@ -128,14 +138,6 @@ impl Tunnels {
 
     /// neighbors_of returns the names of the valves that a single tunnnel connects to
     fn neighbors_of(&self, name: &String) -> Vec<String> {
-        for (name, _) in &self.tunnels {
-            println!("Name bytes: {}: {:?}", name, name.as_bytes());
-        }
-        println!(
-            "Searching for neighbors of {}, bytes: {:?}",
-            name,
-            name.as_bytes()
-        );
         self.tunnels[name].tunnels.clone()
     }
 
@@ -144,7 +146,10 @@ impl Tunnels {
             .tunnels
             .iter()
             .cloned()
-            .filter(|tunnel_name| self.travel_time(name, tunnel_name).unwrap() <= time_budget)
+            .filter(|tunnel_name| {
+                let time_cost = self.travel_time(name, tunnel_name);
+                time_cost.is_some() && time_cost.unwrap() <= time_budget
+            })
             .collect()
     }
 

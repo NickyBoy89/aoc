@@ -1,6 +1,7 @@
 mod rocks;
 
 use std::collections::HashSet;
+use std::time::Instant;
 use std::{fs::File, io::Read};
 
 use rocks::*;
@@ -31,23 +32,53 @@ pub struct Point {
 pub struct Rock {
     pub points: Vec<Point>,
     stopped: bool,
+
+    xmin: isize,
+    xmax: isize,
+    ymin: usize,
+    ymax: usize,
 }
 
 impl Rock {
-    fn max_x(&self) -> isize {
-        self.points.iter().map(|point| point.x).max().unwrap()
+    pub fn new(points: Vec<Point>) -> Rock {
+        let start = Instant::now();
+        let xmin = points.iter().map(|point| point.x).min().unwrap();
+        let xmax = points.iter().map(|point| point.x).max().unwrap();
+        let ymin = points.iter().map(|point| point.y).min().unwrap();
+        let ymax = points.iter().map(|point| point.y).max().unwrap();
+
+        println!("Creating a point took {:?}", start.elapsed());
+
+        Rock {
+            points,
+            stopped: false,
+            xmin,
+            xmax,
+            ymin,
+            ymax,
+        }
     }
 
-    fn min_x(&self) -> isize {
-        self.points.iter().map(|point| point.x).min().unwrap()
+    fn shift_x(&self, amount: isize) -> Rock {
+        let mut new_rock = self.clone();
+        for point in new_rock.points.iter_mut() {
+            point.x += amount;
+        }
+        new_rock.xmin += amount;
+        new_rock.xmax += amount;
+
+        new_rock
     }
 
-    fn max_y(&self) -> usize {
-        self.points.iter().map(|point| point.y).max().unwrap()
-    }
+    fn shift_y(&self, amount: isize) -> Rock {
+        let mut new_rock = self.clone();
+        for point in new_rock.points.iter_mut() {
+            point.y = (point.y as isize + amount) as usize;
+        }
+        new_rock.ymin = (new_rock.ymin as isize + amount) as usize;
+        new_rock.ymax = (new_rock.ymax as isize + amount) as usize;
 
-    fn min_y(&self) -> usize {
-        self.points.iter().map(|point| point.y).min().unwrap()
+        new_rock
     }
 
     fn overlaps(&self, other: &Rock) -> bool {
@@ -72,31 +103,36 @@ impl PartialOrd for Rock {
 
 impl Ord for Rock {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        other.max_y().cmp(&self.max_y())
+        other.ymax.cmp(&self.ymax)
     }
 }
 
 struct Chamber {
     rocks: Vec<Rock>,
+    highest: usize,
 }
 
 impl Chamber {
     fn new() -> Chamber {
-        Chamber { rocks: Vec::new() }
+        Chamber {
+            rocks: Vec::new(),
+            highest: 0,
+        }
     }
 
     fn add_rock(&mut self, rock: Rock) -> usize {
-        println!("Highest is {}", rock.max_y());
+        let start = Instant::now();
+        self.highest = rock.ymax + 1;
         self.rocks.push(rock.clone());
         self.rocks.sort();
-        self.rocks.iter().position(|r| *r == rock).unwrap()
+        let rock_position = self.rocks.iter().position(|r| *r == rock).unwrap();
+
+        println!("Adding a rock took {:?}", start.elapsed());
+        rock_position
     }
 
-    fn max_height(&self) -> usize {
-        if self.rocks.len() == 0 {
-            return 0;
-        }
-        self.rocks.iter().map(|rock| rock.max_y()).max().unwrap() + 1
+    fn recalculate_highest(&mut self) {
+        self.highest = self.rocks.iter().map(|rock| rock.ymax).max().unwrap() + 1
     }
 
     fn display(&self) {
@@ -104,7 +140,7 @@ impl Chamber {
             self.rocks.iter().map(|rock| rock.points.clone()).flatten(),
         );
 
-        for ri in (0..=self.max_height()).rev() {
+        for ri in (0..=self.highest).rev() {
             for ci in 0..7 {
                 if points.contains(&Point { x: ci, y: ri }) {
                     print!("#");
@@ -118,38 +154,6 @@ impl Chamber {
 
     fn rock_stopped(&self, index: usize) -> bool {
         self.rocks[index].stopped
-    }
-
-    fn shift_rock_x(&self, index: usize, amount: isize) -> Rock {
-        Rock {
-            points: self.rocks[index]
-                .points
-                .iter()
-                .cloned()
-                .map(|mut point| {
-                    point.x += amount;
-
-                    point
-                })
-                .collect::<Vec<_>>(),
-            stopped: false,
-        }
-    }
-
-    fn shift_rock_y(&self, index: usize, amount: isize) -> Rock {
-        Rock {
-            points: self.rocks[index]
-                .points
-                .iter()
-                .cloned()
-                .map(|mut point| {
-                    point.y = (point.y as isize + amount) as usize;
-
-                    point
-                })
-                .collect::<Vec<_>>(),
-            stopped: false,
-        }
     }
 }
 
@@ -173,9 +177,7 @@ fn part1(contents: &mut String) {
     static NUM_ROCKS: usize = 2022;
 
     for rock_count in 0..NUM_ROCKS {
-        let rock_ind = chamber.add_rock(rotation[rock_count % rotation.len()](
-            chamber.max_height() + 3,
-        ));
+        let rock_ind = chamber.add_rock(rotation[rock_count % rotation.len()](chamber.highest + 3));
 
         println!("Rock {} begins falling", rock_count + 1);
 
@@ -192,14 +194,12 @@ fn part1(contents: &mut String) {
             let dir = &directions[direction_index % directions.len()];
             direction_index += 1;
 
-            //println!("Moving in direction {:?}", dir);
             let shifted = match dir {
-                Direction::Left => chamber.shift_rock_x(rock_ind, -1),
-                Direction::Right => chamber.shift_rock_x(rock_ind, 1),
+                Direction::Left => chamber.rocks[rock_ind].shift_x(-1),
+                Direction::Right => chamber.rocks[rock_ind].shift_x(1),
             };
 
-            if shifted.min_x() < 0 || shifted.max_x() > 6 {
-            } else {
+            if shifted.xmin > 0 && shifted.xmax < 7 {
                 let overlaps = other_rocks
                     .iter()
                     .find(|rock| shifted.overlaps(rock))
@@ -210,13 +210,14 @@ fn part1(contents: &mut String) {
                 }
             }
 
-            //println!("After vent:");
+            //println!("Moving in direction {:?}", dir);
             //chamber.display();
 
-            if chamber.rocks[rock_ind].min_y() == 0 {
+            if chamber.rocks[rock_ind].ymin == 0 {
                 chamber.rocks[rock_ind].stopped = true;
+                chamber.recalculate_highest();
             } else {
-                let gravity = chamber.shift_rock_y(rock_ind, -1);
+                let gravity = chamber.rocks[rock_ind].shift_y(-1);
 
                 let overlaps = other_rocks
                     .iter()
@@ -224,8 +225,8 @@ fn part1(contents: &mut String) {
                     .is_some();
 
                 if overlaps {
-                    println!("Rock stopped");
                     chamber.rocks[rock_ind].stopped = true;
+                    chamber.recalculate_highest();
                 } else {
                     chamber.rocks[rock_ind] = gravity;
                 }
@@ -235,10 +236,10 @@ fn part1(contents: &mut String) {
             //chamber.display();
         }
 
-        println!("The {}th rock stopped falling", rock_ind + 1);
+        println!("The {}th rock stopped falling", rock_count + 1);
     }
 
-    println!("Maximum height: {}", chamber.max_height());
+    println!("Maximum height: {}", chamber.highest);
 }
 
 //fn part2(contents: &mut String) {}

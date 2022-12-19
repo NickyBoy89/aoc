@@ -199,7 +199,7 @@ fn part1(contents: &mut String) {
                 Direction::Right => chamber.rocks[rock_ind].shift_x(1),
             };
 
-            if shifted.xmin > 0 && shifted.xmax < 7 {
+            if shifted.xmin >= 0 && shifted.xmax < 7 {
                 let overlaps = other_rocks
                     .iter()
                     .find(|rock| shifted.overlaps(rock))

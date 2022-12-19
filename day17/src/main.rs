@@ -30,7 +30,7 @@ pub struct Point {
 
 #[derive(Debug, Clone)]
 pub struct Rock {
-    pub points: Vec<Point>,
+    pub points: HashSet<Point>,
     stopped: bool,
 
     xmin: isize,
@@ -41,16 +41,13 @@ pub struct Rock {
 
 impl Rock {
     pub fn new(points: Vec<Point>) -> Rock {
-        let start = Instant::now();
         let xmin = points.iter().map(|point| point.x).min().unwrap();
         let xmax = points.iter().map(|point| point.x).max().unwrap();
         let ymin = points.iter().map(|point| point.y).min().unwrap();
         let ymax = points.iter().map(|point| point.y).max().unwrap();
 
-        println!("Creating a point took {:?}", start.elapsed());
-
         Rock {
-            points,
+            points: HashSet::from_iter(points.into_iter()),
             stopped: false,
             xmin,
             xmax,
@@ -61,9 +58,10 @@ impl Rock {
 
     fn shift_x(&self, amount: isize) -> Rock {
         let mut new_rock = self.clone();
-        for point in new_rock.points.iter_mut() {
+        new_rock.points = HashSet::from_iter(new_rock.points.drain().map(|mut point| {
             point.x += amount;
-        }
+            point
+        }));
         new_rock.xmin += amount;
         new_rock.xmax += amount;
 
@@ -72,9 +70,12 @@ impl Rock {
 
     fn shift_y(&self, amount: isize) -> Rock {
         let mut new_rock = self.clone();
-        for point in new_rock.points.iter_mut() {
+
+        new_rock.points = HashSet::from_iter(new_rock.points.drain().map(|mut point| {
             point.y = (point.y as isize + amount) as usize;
-        }
+
+            point
+        }));
         new_rock.ymin = (new_rock.ymin as isize + amount) as usize;
         new_rock.ymax = (new_rock.ymax as isize + amount) as usize;
 
@@ -82,8 +83,7 @@ impl Rock {
     }
 
     fn overlaps(&self, other: &Rock) -> bool {
-        !HashSet::<&Point>::from_iter(self.points.iter())
-            .is_disjoint(&HashSet::from_iter(other.points.iter()))
+        !self.points.is_disjoint(&other.points)
     }
 }
 
@@ -121,14 +121,10 @@ impl Chamber {
     }
 
     fn add_rock(&mut self, rock: Rock) -> usize {
-        let start = Instant::now();
         self.highest = rock.ymax + 1;
         self.rocks.push(rock.clone());
         self.rocks.sort();
-        let rock_position = self.rocks.iter().position(|r| *r == rock).unwrap();
-
-        println!("Adding a rock took {:?}", start.elapsed());
-        rock_position
+        self.rocks.iter().position(|r| *r == rock).unwrap()
     }
 
     fn recalculate_highest(&mut self) {
@@ -179,8 +175,6 @@ fn part1(contents: &mut String) {
     for rock_count in 0..NUM_ROCKS {
         let rock_ind = chamber.add_rock(rotation[rock_count % rotation.len()](chamber.highest + 3));
 
-        println!("Rock {} begins falling", rock_count + 1);
-
         while !chamber.rock_stopped(rock_ind) {
             let other_rocks = chamber
                 .rocks
@@ -210,9 +204,6 @@ fn part1(contents: &mut String) {
                 }
             }
 
-            //println!("Moving in direction {:?}", dir);
-            //chamber.display();
-
             if chamber.rocks[rock_ind].ymin == 0 {
                 chamber.rocks[rock_ind].stopped = true;
                 chamber.recalculate_highest();
@@ -231,12 +222,7 @@ fn part1(contents: &mut String) {
                     chamber.rocks[rock_ind] = gravity;
                 }
             }
-
-            //println!("After gravity:");
-            //chamber.display();
         }
-
-        println!("The {}th rock stopped falling", rock_count + 1);
     }
 
     println!("Maximum height: {}", chamber.highest);

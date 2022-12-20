@@ -1,6 +1,6 @@
 use crate::{Point, Rock};
 
-pub fn line(height: usize) -> Rock {
+pub fn line(height: isize) -> Rock {
     Rock::new(vec![
         Point { x: 2, y: height },
         Point { x: 3, y: height },
@@ -9,7 +9,7 @@ pub fn line(height: usize) -> Rock {
     ])
 }
 
-pub fn plus(height: usize) -> Rock {
+pub fn plus(height: isize) -> Rock {
     Rock::new(vec![
         // Bottom center
         Point { x: 3, y: height },
@@ -34,7 +34,7 @@ pub fn plus(height: usize) -> Rock {
     ])
 }
 
-pub fn ell(height: usize) -> Rock {
+pub fn ell(height: isize) -> Rock {
     Rock::new(vec![
         // Bottom of L
         Point { x: 2, y: height },
@@ -52,7 +52,7 @@ pub fn ell(height: usize) -> Rock {
     ])
 }
 
-pub fn vline(height: usize) -> Rock {
+pub fn vline(height: isize) -> Rock {
     Rock::new(vec![
         Point { x: 2, y: height },
         Point {
@@ -70,7 +70,7 @@ pub fn vline(height: usize) -> Rock {
     ])
 }
 
-pub fn square(height: usize) -> Rock {
+pub fn square(height: isize) -> Rock {
     Rock::new(vec![
         Point { x: 2, y: height },
         Point { x: 3, y: height },

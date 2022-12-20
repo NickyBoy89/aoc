@@ -1,9 +1,11 @@
 mod rocks;
+mod stack_top;
 
 use std::collections::{HashMap, HashSet};
 use std::{fs::File, io::Read};
 
 use rocks::*;
+use stack_top::StackTop;
 
 #[derive(Debug)]
 enum Direction {
@@ -32,19 +34,14 @@ pub struct Rock {
     pub points: HashSet<Point>,
     stopped: bool,
 
-    xmin: isize,
-    xmax: isize,
-    ymin: isize,
-    ymax: isize,
+    pub xmin: isize,
+    pub xmax: isize,
+    pub ymin: isize,
+    pub ymax: isize,
 }
 
 impl Rock {
-    pub fn new(points: Vec<Point>) -> Rock {
-        let xmin = points.iter().map(|point| point.x).min().unwrap();
-        let xmax = points.iter().map(|point| point.x).max().unwrap();
-        let ymin = points.iter().map(|point| point.y).min().unwrap();
-        let ymax = points.iter().map(|point| point.y).max().unwrap();
-
+    pub fn new(points: Vec<Point>, xmin: isize, xmax: isize, ymin: isize, ymax: isize) -> Rock {
         Rock {
             points: HashSet::from_iter(points.into_iter()),
             stopped: false,
@@ -87,6 +84,22 @@ impl Rock {
 
     fn height(&self) -> usize {
         ((self.ymax - self.ymin) + 1) as usize
+    }
+
+    fn min_at(&self, x: isize) -> Option<isize> {
+        self.points
+            .iter()
+            .filter(|point| point.x == x)
+            .map(|point| point.y)
+            .min()
+    }
+
+    fn max_at(&self, x: isize) -> Option<isize> {
+        self.points
+            .iter()
+            .filter(|point| point.x == x)
+            .map(|point| point.y)
+            .max()
     }
 }
 
@@ -230,133 +243,78 @@ fn part1(directions: &Vec<Direction>) {
     println!("Maximum height: {}", chamber.highest);
 }
 
-fn visualize_ground(ground: &[isize; 7]) {
-    let max = *ground.iter().max().unwrap();
-
-    for line in 0..=max {
-        for ind in 0..7 {
-            if ground[ind] == line {
-                print!("#");
-            } else {
-                print!(".");
-            }
-        }
-        println!();
-    }
-}
-
 fn part2(directions: &Vec<Direction>) {
-    // seven units wide
-    // gets pushed first, falls second
-    // left edge is two units away from the left wall
-    // bottom is three units above the highest rock, or floor
+    let mut rotation = [line, plus, ell, vline, square].iter().cycle();
+    let mut directions = directions.iter().cycle();
 
-    let rotation = Vec::from([line, plus, ell, vline, square]);
-
-    static NUM_ROCKS: usize = 3;
+    static NUM_ROCKS: usize = 2022;
     //static NUM_ROCKS: usize = 1_000_000_000_000;
 
-    let mut direction_ind = 0;
-
-    // stack_top starts at the floor (-1)
-    let mut stack_height = 0;
-
     // stack_top is a map of every column, and its distance from the top of the stack
-    let mut stack_top = [-1; 7];
+    let mut stack_top = StackTop::new();
+
+    stack_top.visualize();
 
     for rock_count in 0..NUM_ROCKS {
-        let mut rock = rotation[rock_count % rotation.len()](stack_height as isize + 3);
+        let mut rock = rotation.next().unwrap()(stack_top.height + 4);
 
-        // Start the falling section
         loop {
-            // Fetch the next direction
-            let direction = &directions[direction_ind % directions.len()];
-            direction_ind += 1;
+            let direction = directions.next().unwrap();
 
-            println!("Rock is at {:?}", rock);
+            //println!("Moving in direction {:?}", direction);
 
-            // Move left or right
-
-            let top_points = HashSet::<Point>::from_iter((0..7).map(|index| Point {
-                x: index as isize,
-                y: stack_height - stack_top[index],
-            }));
-
-            println!("Points to avoid are at: {:?}", top_points);
-
-            // TODO: Add check for moving into another block
-            // and check for above the maximum
-            println!("Moving in direction {:?}", direction);
             match direction {
                 Direction::Left => {
-                    // Check for runnning into the walls
-                    if rock.xmin > 0 && rock.points.is_disjoint(&top_points) {
-                        rock = rock.shift_x(-1);
+                    if rock.xmin > 0 {
+                        let shifted = rock.shift_x(-1);
+                        if !stack_top.overlaps_rock(&shifted) {
+                            rock = shifted;
+                        }
                     }
                 }
                 Direction::Right => {
-                    if rock.xmax < 6 && rock.points.is_disjoint(&top_points) {
-                        rock = rock.shift_x(1);
+                    if rock.xmax < 6 {
+                        let shifted = rock.shift_x(1);
+                        if !stack_top.overlaps_rock(&shifted) {
+                            rock = shifted;
+                        }
                     }
                 }
             }
 
-            // Move gravity
-            println!("Moving down");
-            rock = rock.shift_y(-1);
+            //println!("Rock is at {:?}", rock);
 
-            if rock.stopped {
-                println!("Rock settled");
-                println!("Height of rock is {}", rock.height());
+            if rock.points.iter().find(|point| point.y < 0).is_some() {
+                panic!("Something slipped through");
+            }
 
-                // Adjust heights of the ground
-                for index in 0..7 {
-                    // Find the highest point at that index for the rock
-                    let highest_point = rock
-                        .points
-                        .iter()
-                        .filter(|point| point.x == index as isize)
-                        .map(|point| point.y)
-                        .max();
+            //stack_top.visualize_with_rock(&rock);
 
-                    if highest_point.is_none() {
-                        continue;
+            let gravity = rock.shift_y(-1);
+            if stack_top.overlaps_rock(&gravity) {
+                for (ind, col) in stack_top.top.iter_mut().enumerate() {
+                    let max_col = rock.max_at(ind as isize);
+
+                    if let Some(max) = max_col {
+                        let new_height = stack_top.height - max;
+                        *col = new_height;
                     }
-
-                    stack_top[index] -= ((highest_point.unwrap() - rock.ymin) + 1) as isize;
                 }
 
-                let min_diff = -*stack_top.iter().min().unwrap();
-                println!("Min diff: {}", min_diff);
-                for ind in 0..7 {
-                    stack_top[ind] += min_diff;
-                }
+                stack_top.normalize_heights();
 
-                stack_height += min_diff;
-
+                //println!("Settled!");
+                //stack_top.visualize();
                 break;
-            }
-
-            let settled = (0..7)
-                .map(|index| Point {
-                    x: index as isize,
-                    y: stack_height - stack_top[index],
-                })
-                .find(|point| rock.points.contains(point))
-                .is_some();
-
-            if settled {
-                rock.stopped = true;
+            } else {
+                rock = gravity;
             }
         }
 
-        println!(
-            "Ground texture after rock: {:?}",
-            visualize_ground(&stack_top)
-        );
+        println!("Finished rock {}", rock_count + 1);
     }
 
-    println!("Maximum height: {}", stack_height);
+    println!("Maximum height: {}", stack_top.height);
 }
 
 fn main() -> std::io::Result<()> {

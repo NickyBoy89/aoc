@@ -117,23 +117,7 @@ fn part1(contents: &mut String) {
 }
 
 fn part2(contents: &mut String) {
-    let mut heightmap = Heigh####
-
-.#.
-###
-.#.
-
-..#
-..#
-###
-
-#
-#
-#
-#
-
-##
-##tmap::parse(contents);
+    let mut heightmap = Heightmap::parse(contents);
 
     let mut starts = Vec::new();
     for (ri, row) in heightmap.grid.iter().enumerate() {

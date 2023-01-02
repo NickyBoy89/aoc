@@ -93,10 +93,6 @@ impl Map {
         self.tiles[point.y as usize][point.x as usize]
     }
 
-    fn is_void(&self, point: &Point) -> bool {
-        matches!(self.tile_at(point), Tile::Void)
-    }
-
     fn is_solid(&self, point: &Point) -> bool {
         matches!(self.tile_at(point), Tile::Blocked)
     }
@@ -140,6 +136,12 @@ impl Map {
 struct Point {
     x: isize,
     y: isize,
+}
+
+impl Point {
+    fn face_number(&self) -> usize {
+        0
+    }
 }
 
 #[derive(Debug)]

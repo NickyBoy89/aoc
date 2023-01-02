@@ -20,6 +20,15 @@ impl Operation {
             c => panic!("Unknown operation: {}", c),
         }
     }
+
+    fn inverse(&self) -> Operation {
+        match self {
+            Operation::Add => Operation::Subtract,
+            Operation::Subtract => Operation::Add,
+            Operation::Multiply => Operation::Divide,
+            Operation::Divide => Operation::Multiply,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -39,6 +48,29 @@ impl MonkeyNumber {
                 || numbers[right_child.as_str()].is_resolved();
         }
         panic!("Number was not unresolved");
+    }
+
+    fn left_resolved(&self, numbers: &HashMap<&str, MonkeyNumber>) -> bool {
+        if let MonkeyNumber::Unresolved(left_child, _, _) = self {
+            return numbers[left_child.as_str()].is_resolved();
+        }
+        panic!("Number was not unresolved");
+    }
+
+    fn right_resolved(&self, numbers: &HashMap<&str, MonkeyNumber>) -> bool {
+        if let MonkeyNumber::Unresolved(_, _, right_child) = self {
+            return numbers[right_child.as_str()].is_resolved();
+        }
+        panic!("Number was not unresolved");
+    }
+
+    fn inverse(&self) -> MonkeyNumber {
+        match self {
+            MonkeyNumber::Resolved(num) => MonkeyNumber::Resolved(*num),
+            MonkeyNumber::Unresolved(left, op, right) => {
+                MonkeyNumber::Unresolved(left.to_string(), op.inverse(), right.to_string())
+            }
+        }
     }
 }
 
@@ -118,8 +150,12 @@ fn part2(contents: &mut String) {
         }
     }
 
+    numbers.insert(
+        "humn",
+        MonkeyNumber::Unresolved("".to_string(), Operation::Add, "".to_string()),
+    );
+
     while !numbers["root"].has_child_resolved(&numbers) {
-        println!("Root: {:?}", numbers["root"]);
         for (name, number) in numbers.clone().iter() {
             if name == &"humn" {
                 continue;
@@ -145,22 +181,33 @@ fn part2(contents: &mut String) {
         }
     }
 
-    let mut target = 0;
+    let mut target = MonkeyNumber::Resolved(0);
+    let mut result_name = "";
+    let mut other_name = "";
 
     if let MonkeyNumber::Unresolved(left, _, right) = &numbers["root"] {
-        if let MonkeyNumber::Resolved(number) = numbers[left.as_str()] {
-            target = number;
-        } else if let MonkeyNumber::Resolved(number) = numbers[right.as_str()] {
-            target = number;
+        let left_num = &numbers[left.as_str()];
+        let right_num = &numbers[right.as_str()];
+
+        assert!(left_num.is_resolved() || right_num.is_resolved());
+
+        if left_num.is_resolved() {
+            target = left_num.clone();
+            result_name = left;
+            other_name = right;
+        } else if right_num.is_resolved() {
+            target = right_num.clone();
+            result_name = right;
+            other_name = left;
         }
-        println!(
-            "Left is: {:?}, Right: {:?}",
-            numbers[left.as_str()],
-            numbers[right.as_str()]
-        );
     }
 
-    println!("Numbers: {:?}", numbers);
+    let mut current = &numbers[other_name];
+    if current.left_resolved(&numbers) {
+        // yes
+    }
+
+    println!("The monkey: {} has resolved to {:?}", result_name, target);
 
     println!("The root monkey yells: {:?}", numbers["root"]);
 }

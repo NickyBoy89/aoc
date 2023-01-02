@@ -50,16 +50,15 @@ struct ExtractionArea {
     pos: Point,
     width: usize,
     height: usize,
-    walls: Vec<Point>,
     blizzards: Vec<Blizzard>,
 }
 
 impl ExtractionArea {
-    fn display(&self) {
+    fn display(&self, walls: &Vec<Point>) {
         for row in 0..self.height {
             for col in 0..self.width {
                 let point = Point::new(col as isize, row as isize);
-                if self.walls.contains(&point) {
+                if walls.contains(&point) {
                     print!("#");
                     continue;
                 }
@@ -86,7 +85,7 @@ impl ExtractionArea {
         }
     }
 
-    fn move_storms(&mut self) {
+    fn move_storms(&mut self, walls: &Vec<Point>) {
         let cantidates = self
             .blizzards
             .iter()
@@ -99,7 +98,7 @@ impl ExtractionArea {
             .collect::<Vec<_>>();
         self.blizzards.clear();
         for cantidate in cantidates {
-            if self.walls.contains(&cantidate.pos) {
+            if walls.contains(&cantidate.pos) {
                 self.blizzards.push(match cantidate.facing {
                     Direction::Up => cantidate.set_y(self.height as isize - 2),
                     Direction::Down => cantidate.set_y(1),
@@ -112,8 +111,8 @@ impl ExtractionArea {
         }
     }
 
-    fn point_in_wall(&self, point: &Point) -> bool {
-        for wall in self.walls.iter() {
+    fn point_in_wall(&self, walls: &Vec<Point>, point: &Point) -> bool {
+        for wall in walls.iter() {
             if wall.x == point.x && wall.y == point.y {
                 return true;
             }
@@ -131,16 +130,6 @@ impl ExtractionArea {
     }
 }
 
-/*
-impl PartialEq for ExtractionArea {
-    fn eq(&self, other: &Self) -> bool {
-        unimplemented!()
-    }
-}
-
-impl Eq for ExtractionArea {}
-*/
-
 impl Ord for ExtractionArea {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.pos.cmp(&other.pos)
@@ -153,7 +142,207 @@ impl PartialOrd for ExtractionArea {
     }
 }
 
-fn part1(contents: &mut String) {
+fn part1(blizzards: &Vec<Blizzard>, walls: &Vec<Point>, width: usize, height: usize) {
+    let start_point = Point::new(1, 0);
+    let end_point = Point::new(width as isize - 2, height as isize - 1);
+
+    println!("Starting at {:?}, ending at {:?}", start_point, end_point);
+
+    let start_area = ExtractionArea {
+        pos: start_point,
+        width,
+        height,
+        blizzards: blizzards.clone(),
+    };
+
+    start_area.display(walls);
+
+    let mut history = HashSet::<ExtractionArea>::new();
+
+    let mut lowest = usize::MAX;
+
+    let mut states = BinaryHeap::from([start_area]);
+    while !states.is_empty() {
+        // Get the current state
+        let mut current = states.pop().unwrap();
+        current.move_storms(walls);
+
+        if current.pos.time_elapsed > lowest {
+            continue;
+        }
+
+        if !history.insert(current.clone()) {
+            continue;
+        }
+
+        // If we are on the target
+        if current.pos.x == end_point.x && current.pos.y == end_point.y {
+            if current.pos.time_elapsed < lowest {
+                lowest = current.pos.time_elapsed;
+                history.retain(|state| state.pos.time_elapsed <= lowest);
+                states.retain(|state| state.pos.time_elapsed <= lowest);
+            }
+        }
+
+        // Since we can always wait, unless there is a blizzard currently
+        if !current.point_in_blizzard(&current.pos) {
+            let mut wait = current.clone();
+            wait.pos.time_elapsed += 1;
+            states.push(wait);
+        }
+
+        // Explore all the other options
+        for mut other in current.pos.neighbors() {
+            // Make sure the new point is not in any walls or blizzards
+            if current.point_in_wall(walls, &other) || current.point_in_blizzard(&other) {
+                continue;
+            }
+
+            if other.x < 0 || other.x >= current.width as isize {
+                continue;
+            } else if other.y < 0 || other.y >= current.height as isize {
+                continue;
+            }
+
+            let mut new_state = current.clone();
+            other.time_elapsed = current.pos.time_elapsed + 1;
+            new_state.pos = other;
+            states.push(new_state);
+        }
+    }
+
+    println!("Lowest: {}", lowest);
+}
+
+fn shortest_path_to(
+    starting_state: ExtractionArea,
+    walls: &Vec<Point>,
+    end_point: &Point,
+) -> ExtractionArea {
+    let mut history = HashSet::<ExtractionArea>::new();
+
+    let mut lowest = starting_state.clone();
+    lowest.pos.time_elapsed = usize::MAX;
+
+    let mut states = BinaryHeap::from([starting_state]);
+    while !states.is_empty() {
+        // Get the current state
+        let mut current = states.pop().unwrap();
+        current.move_storms(walls);
+
+        if current.pos.time_elapsed > lowest.pos.time_elapsed {
+            continue;
+        }
+
+        if !history.insert(current.clone()) {
+            continue;
+        }
+
+        // If we are on the target
+        if current.pos.x == end_point.x && current.pos.y == end_point.y {
+            if current.pos.time_elapsed < lowest.pos.time_elapsed {
+                lowest = current.clone();
+                history.retain(|state| state.pos.time_elapsed <= lowest.pos.time_elapsed);
+                states.retain(|state| state.pos.time_elapsed <= lowest.pos.time_elapsed);
+            }
+        }
+
+        // Since we can always wait, unless there is a blizzard currently
+        if !current.point_in_blizzard(&current.pos) {
+            let mut wait = current.clone();
+            wait.pos.time_elapsed += 1;
+            states.push(wait);
+        }
+
+        // Explore all the other options
+        for mut other in current.pos.neighbors() {
+            // Make sure the new point is not in any walls or blizzards
+            if current.point_in_wall(walls, &other) || current.point_in_blizzard(&other) {
+                continue;
+            }
+
+            if other.x < 0 || other.x >= current.width as isize {
+                continue;
+            } else if other.y < 0 || other.y >= current.height as isize {
+                continue;
+            }
+
+            let mut new_state = current.clone();
+            other.time_elapsed = current.pos.time_elapsed + 1;
+            new_state.pos = other;
+            states.push(new_state);
+        }
+    }
+
+    drop(history);
+
+    lowest
+}
+
+fn part2(blizzards: &Vec<Blizzard>, walls: &Vec<Point>, width: usize, height: usize) {
+    let start_point = Point::new(1, 0);
+    let end_point = Point::new(width as isize - 2, height as isize - 1);
+
+    let mut total_time = 0;
+
+    println!("Starting at {:?}, ending at {:?}", start_point, end_point);
+
+    let start_area = ExtractionArea {
+        pos: start_point,
+        width,
+        height,
+        blizzards: blizzards.clone(),
+    };
+
+    start_area.display(walls);
+
+    let lowest = shortest_path_to(start_area, walls, &end_point);
+
+    println!("Took {} time to get to the end", lowest.pos.time_elapsed);
+    total_time += lowest.pos.time_elapsed;
+
+    let start_area = ExtractionArea {
+        pos: end_point,
+        width,
+        height,
+        blizzards: lowest.blizzards.clone(),
+    };
+
+    start_area.display(walls);
+
+    let lowest = shortest_path_to(start_area, walls, &start_point);
+
+    println!(
+        "Took {} time to get back to the start",
+        lowest.pos.time_elapsed
+    );
+    total_time += lowest.pos.time_elapsed + 1;
+
+    let start_area = ExtractionArea {
+        pos: start_point,
+        width,
+        height,
+        blizzards: lowest.blizzards.clone(),
+    };
+
+    start_area.display(walls);
+
+    let lowest = shortest_path_to(start_area, walls, &end_point);
+
+    println!(
+        "Took {} time to get back to the end",
+        lowest.pos.time_elapsed
+    );
+    total_time += lowest.pos.time_elapsed + 1;
+
+    println!("Took a total of {}", total_time);
+}
+
+fn main() -> std::io::Result<()> {
+    let mut f = File::open("input")?;
+    let mut contents = String::new();
+    f.read_to_string(&mut contents)?;
+
     let lines = contents.lines().collect::<Vec<_>>();
     let width = lines[0].len();
     let height = lines.len();
@@ -199,87 +388,8 @@ fn part1(contents: &mut String) {
         }
     }
 
-    let start_point = Point::new(1, 0);
-    let end_point = Point::new(width as isize - 2, height as isize - 1);
-
-    println!("Starting at {:?}, ending at {:?}", start_point, end_point);
-
-    let start_area = ExtractionArea {
-        pos: start_point,
-        width,
-        height,
-        walls,
-        blizzards,
-    };
-
-    start_area.display();
-
-    let mut history = HashSet::<ExtractionArea>::new();
-
-    let mut lowest = usize::MAX;
-
-    let mut states = BinaryHeap::from([start_area]);
-    while !states.is_empty() {
-        // Get the current state
-        let mut current = states.pop().unwrap();
-        current.move_storms();
-
-        if current.pos.time_elapsed > lowest {
-            continue;
-        }
-
-        if !history.insert(current.clone()) {
-            continue;
-        }
-
-        // If we are on the target
-        if current.pos.x == end_point.x && current.pos.y == end_point.y {
-            if current.pos.time_elapsed < lowest {
-                lowest = current.pos.time_elapsed;
-                history.retain(|state| state.pos.time_elapsed <= lowest);
-                states.retain(|state| state.pos.time_elapsed <= lowest);
-            }
-        }
-
-        // Since we can always wait, unless there is a blizzard currently
-        if !current.point_in_blizzard(&current.pos) {
-            let mut wait = current.clone();
-            wait.pos.time_elapsed += 1;
-            states.push(wait);
-        }
-
-        // Explore all the other options
-        for mut other in current.pos.neighbors() {
-            // Make sure the new point is not in any walls or blizzards
-            if current.point_in_wall(&other) || current.point_in_blizzard(&other) {
-                continue;
-            }
-
-            if other.x < 0 || other.x >= current.width as isize {
-                continue;
-            } else if other.y < 0 || other.y >= current.height as isize {
-                continue;
-            }
-
-            let mut new_state = current.clone();
-            other.time_elapsed = current.pos.time_elapsed + 1;
-            new_state.pos = other;
-            states.push(new_state);
-        }
-    }
-
-    println!("Lowest: {}", lowest);
-}
-
-//fn part2(contents: &mut String) {}
-
-fn main() -> std::io::Result<()> {
-    let mut f = File::open("input")?;
-    let mut contents = String::new();
-    f.read_to_string(&mut contents)?;
-
-    part1(&mut contents);
-    //part2(&mut contents);
+    //part1(&blizzards, &walls, width, height);
+    part2(&blizzards, &walls, width, height);
 
     Ok(())
 }

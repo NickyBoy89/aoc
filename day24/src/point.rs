@@ -3,7 +3,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Point {
     pub x: isize,
     pub y: isize,

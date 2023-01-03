@@ -1,9 +1,11 @@
-use std::collections::{HashMap, VecDeque};
+#![feature(linked_list_remove)]
+
+use std::collections::{HashMap, LinkedList, VecDeque};
 use std::fmt::{write, Display};
 use std::str::FromStr;
 use std::{fs::File, io::Read};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 struct Number {
     value: isize,
     original_index: usize,
@@ -17,27 +19,38 @@ impl Display for Number {
 
 #[derive(Debug)]
 struct EncryptedFile {
-    numbers: Vec<Number>,
+    numbers: LinkedList<Number>,
 }
 
 impl EncryptedFile {
     fn move_at(&mut self, index: usize) {
-        let number = self.numbers[index];
-        let mut temp = self.numbers.chunks(1).collect::<Vec<_>>();
-        let new_ind = index as isize + number.value;
-        let actual_ind = (new_ind).rem_euclid(self.numbers.len() as isize) as usize;
+        let shift = self.numbers.iter().nth(index).unwrap();
+
+        let new_ind = index as isize + shift.value;
+        let mut actual_ind = new_ind.rem_euclid(self.numbers.len() as isize) as usize;
 
         if new_ind > 0 {
-            for ind in index..actual_ind {
-                temp.swap(ind, (ind + 1).rem_euclid(self.numbers.len()));
-            }
-        } else {
-            for ind in (actual_ind..index).rev() {
-                temp.swap(ind, (ind + 1).rem_euclid(self.numbers.len()));
-            }
+            actual_ind = (actual_ind + 1).rem_euclid(self.numbers.len());
+        } else if shift.value < 0 && actual_ind == 0 {
+            actual_ind = (actual_ind as isize - 1).rem_euclid(self.numbers.len() as isize) as usize;
         }
 
-        self.numbers = temp.into_iter().flatten().map(|n| *n).collect::<Vec<_>>();
+        println!("Actual index is {}", actual_ind);
+
+        let mut new_numbers = LinkedList::<Number>::new();
+        for (ind, number) in self.numbers.iter().enumerate() {
+            if ind == actual_ind {
+                new_numbers.push_back(shift.clone());
+            }
+            new_numbers.push_back(number.clone());
+        }
+
+        self.numbers = new_numbers
+            .into_iter()
+            .enumerate()
+            .filter(|(ind, number)| number != shift || (number == shift && *ind == actual_ind))
+            .map(|(_, number)| number)
+            .collect();
     }
 
     fn display(&self) {
@@ -57,7 +70,7 @@ fn part1(contents: &mut String) {
             value: isize::from_str(line).unwrap(),
             original_index: index,
         })
-        .collect::<Vec<_>>();
+        .collect::<LinkedList<_>>();
 
     let mut file = EncryptedFile { numbers };
     let mut visited = vec![false; file.numbers.len()];
@@ -71,8 +84,10 @@ fn part1(contents: &mut String) {
                 visited[number.original_index] = true;
                 num_visited += 1;
 
+                println!("Before:");
+                file.display();
+                println!("Moving number {} at index {}", number, ind);
                 file.move_at(ind);
-                println!("File:");
                 file.display();
                 break;
             }
@@ -91,6 +106,7 @@ fn part1(contents: &mut String) {
 
     let coordinates = [1000, 2000, 3000];
 
+    /*
     println!(
         "The sum of coordinates is: {}",
         coordinates
@@ -98,6 +114,7 @@ fn part1(contents: &mut String) {
             .map(|number| file.numbers[(number + zero_ind) % file.numbers.len()].value)
             .sum::<isize>()
     )
+        */
 }
 
 //fn part2(contents: &mut String) {}

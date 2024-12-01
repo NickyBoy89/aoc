@@ -1,2 +1,7 @@
 input
 target/
+
+
+# Added by cargo
+
+/target
